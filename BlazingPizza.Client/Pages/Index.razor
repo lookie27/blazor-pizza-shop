@@ -1,7 +1,7 @@
 ﻿@page "/"
 @inject HttpClient HttpClient
 
-<div class="main">
+<div class="main specials-list">
     <ul class="pizza-cards">
         @if (specials != null)
         {
@@ -19,15 +19,45 @@
     </ul>
 </div>
 
+<div class="sidebar">
+    @if (order.Pizzas.Any())
+    {
+        <div class="order-contents">
+            <h2>Your order</h2>
+
+            @foreach (var configuredPizza in order.Pizzas)
+            {
+                <ConfiguredPizzaItem Pizza="configuredPizza" OnRemoved="@(() => RemoveConfiguredPizza(configuredPizza))" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-cart">Choose a pizza<br>to get started</div>
+    }
+
+    <div class="order-total @(order.Pizzas.Any() ? "" : "hidden")">
+        Total:
+        <span class="total-price">@order.GetFormattedTotalPrice()</span>
+        <button class="btn btn-warning" disabled="@(order.Pizzas.Count == 0)" @onclick="PlaceOrder">
+            Order >
+        </button>
+    </div>
+</div>
+
+
+
 @if (showingConfigureDialog) 
 {
-    <ConfigurePizzaDialog Pizza="configuringPizza" />
+    <ConfigurePizzaDialog Pizza="configuringPizza" OnCancel="CancelConfigurePizzaDialog" OnConfirm="ConfirmConfigurePizzaDialog" />
 }
 
-@code {
+@code 
+{
     List<PizzaSpecial> specials;
     Pizza configuringPizza;
     bool showingConfigureDialog;
+    Order order = new Order();
 
     void ShowConfigurePizzaDialog(PizzaSpecial special)
     {
@@ -40,6 +70,30 @@
         };
 
         showingConfigureDialog = true;
+    }
+
+    void CancelConfigurePizzaDialog()
+    {
+        configuringPizza = null;
+        showingConfigureDialog = false;
+    }
+
+    void ConfirmConfigurePizzaDialog()
+    {
+        order.Pizzas.Add(configuringPizza);
+        configuringPizza = null;
+        showingConfigureDialog = false;
+    }
+    
+    void RemoveConfiguredPizza(Pizza pizza)
+    {
+        order.Pizzas.Remove(pizza);
+    }
+
+    async Task PlaceOrder()
+    {
+        await HttpClient.PostAsJsonAsync("orders", order);
+        order = new Order();
     }
 
     protected override async Task OnInitializedAsync()
